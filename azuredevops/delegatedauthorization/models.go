@@ -10,8 +10,8 @@ package delegatedauthorization
 
 import (
 	"github.com/google/uuid"
-	"github.com/tingluohuang/azure-devops-go-api/azuredevops"
-	"github.com/tingluohuang/azure-devops-go-api/azuredevops/webapi"
+	"github.com/TingluoHuang/azure-devops-go-api/azuredevops"
+	"github.com/TingluoHuang/azure-devops-go-api/azuredevops/webapi"
 )
 
 type AccessTokenResult struct {
