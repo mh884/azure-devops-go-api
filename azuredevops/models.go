@@ -66,7 +66,7 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 	// returns default dates in a format that is invalid for a time.Time. The
 	// correct value would have a 'z' at the end to represent utc. We are going
 	// to ignore this error, and set the value to the default time.Time value.
-	// https://github.com/microsoft/azure-devops-go-api/issues/17
+	// https://github.com/tingluohuang/azure-devops-go-api/issues/17
 	if err != nil {
 		if parseError, ok := err.(*time.ParseError); ok && parseError.Value == "\"0001-01-01T00:00:00\"" {
 			err = nil

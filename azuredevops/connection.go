@@ -6,11 +6,23 @@ package azuredevops
 import (
 	"context"
 	"encoding/base64"
-	"github.com/google/uuid"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
+
+// Creates a new Azure DevOps connection instance using a OAuth access token.
+func NewOAuthConnection(organizationUrl string, oauthAccessToken string) *Connection {
+	authorizationString := CreateBearerAuthHeaderValue(oauthAccessToken)
+	organizationUrl = normalizeUrl(organizationUrl)
+	return &Connection{
+		AuthorizationString:     authorizationString,
+		BaseUrl:                 organizationUrl,
+		SuppressFedAuthRedirect: true,
+	}
+}
 
 // Creates a new Azure DevOps connection instance using a personal access token.
 func NewPatConnection(organizationUrl string, personalAccessToken string) *Connection {
@@ -47,6 +59,10 @@ type Connection struct {
 func CreateBasicAuthHeaderValue(username, password string) string {
 	auth := username + ":" + password
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+}
+
+func CreateBearerAuthHeaderValue(token string) string {
+	return "Bearer " + token
 }
 
 func normalizeUrl(url string) string {

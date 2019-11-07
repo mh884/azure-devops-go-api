@@ -10,9 +10,9 @@ package taskagent
 
 import (
 	"github.com/google/uuid"
-	"github.com/microsoft/azure-devops-go-api/azuredevops"
-	"github.com/microsoft/azure-devops-go-api/azuredevops/forminput"
-	"github.com/microsoft/azure-devops-go-api/azuredevops/webapi"
+	"github.com/tingluohuang/azure-devops-go-api/azuredevops"
+	"github.com/tingluohuang/azure-devops-go-api/azuredevops/forminput"
+	"github.com/tingluohuang/azure-devops-go-api/azuredevops/webapi"
 )
 
 type AadLoginPromptOption string
