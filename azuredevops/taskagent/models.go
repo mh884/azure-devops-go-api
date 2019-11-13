@@ -9,10 +9,10 @@
 package taskagent
 
 import (
-	"github.com/google/uuid"
 	"github.com/TingluoHuang/azure-devops-go-api/azuredevops"
 	"github.com/TingluoHuang/azure-devops-go-api/azuredevops/forminput"
 	"github.com/TingluoHuang/azure-devops-go-api/azuredevops/webapi"
+	"github.com/google/uuid"
 )
 
 type AadLoginPromptOption string
@@ -1242,6 +1242,7 @@ type TaskAgent struct {
 	StatusChangedOn    *azuredevops.Time  `json:"statusChangedOn,omitempty"`
 	SystemCapabilities *map[string]string `json:"systemCapabilities,omitempty"`
 	UserCapabilities   *map[string]string `json:"userCapabilities,omitempty"`
+	Labels             *[]string          `json:"labels,omitempty"`
 }
 
 // Provides data necessary for authorizing the agent using OAuth 2.0 authentication flows.

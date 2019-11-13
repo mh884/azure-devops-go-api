@@ -12,12 +12,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/google/uuid"
-	"github.com/TingluoHuang/azure-devops-go-api/azuredevops"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/TingluoHuang/azure-devops-go-api/azuredevops"
+	"github.com/google/uuid"
 )
 
 var ResourceAreaId, _ = uuid.Parse("a85b8835-c1a1-4aac-ae97-1c3d0ba72dbd")
@@ -37,6 +38,8 @@ type Client interface {
 	AddTaskGroup(context.Context, AddTaskGroupArgs) (*TaskGroup, error)
 	// [Preview API] Add a variable group.
 	AddVariableGroup(context.Context, AddVariableGroupArgs) (*VariableGroup, error)
+	// Create an agent session
+	CreateAgentSession(context.Context, AddAgentSessionArgs) (*TaskAgentSession, error)
 	// Delete an agent.  You probably don't want to call this endpoint directly. Instead, [use the agent configuration script](https://docs.microsoft.com/azure/devops/pipelines/agents/agents) to remove an agent from your organization.
 	DeleteAgent(context.Context, DeleteAgentArgs) error
 	// [Preview API]
@@ -49,6 +52,8 @@ type Client interface {
 	DeleteDeploymentGroup(context.Context, DeleteDeploymentGroupArgs) error
 	// [Preview API] Delete a deployment target in a deployment group. This deletes the agent from associated deployment pool too.
 	DeleteDeploymentTarget(context.Context, DeleteDeploymentTargetArgs) error
+	// Delete message
+	DeleteMessage(context.Context, DeleteMessageArgs) error
 	// [Preview API] Delete a task group.
 	DeleteTaskGroup(context.Context, DeleteTaskGroupArgs) error
 	// [Preview API] Delete a variable group
@@ -87,6 +92,8 @@ type Client interface {
 	GetDeploymentTarget(context.Context, GetDeploymentTargetArgs) (*DeploymentMachine, error)
 	// [Preview API] Get a list of deployment targets in a deployment group.
 	GetDeploymentTargets(context.Context, GetDeploymentTargetsArgs) (*GetDeploymentTargetsResponseValue, error)
+	// Get Message from message queue
+	GetMessage(context.Context, GetMessageArgs) (*TaskAgentMessage, error)
 	// [Preview API] List task groups.
 	GetTaskGroups(context.Context, GetTaskGroupsArgs) (*[]TaskGroup, error)
 	// [Preview API] Get a variable group.
@@ -353,6 +360,39 @@ type AddVariableGroupArgs struct {
 	Project *string
 }
 
+// Arguments for the CreateAgentSession function
+type AddAgentSessionArgs struct {
+	// (required) Details about the session being added
+	Session *TaskAgentSession
+	// (required) The agent pool in which to add the agent
+	PoolId *int
+}
+
+func (client *ClientImpl) CreateAgentSession(ctx context.Context, args AddAgentSessionArgs) (*TaskAgentSession, error) {
+	if args.Session == nil {
+		return nil, &azuredevops.ArgumentNilError{ArgumentName: "args.Session"}
+	}
+	routeValues := make(map[string]string)
+	if args.PoolId == nil {
+		return nil, &azuredevops.ArgumentNilError{ArgumentName: "args.PoolId"}
+	}
+	routeValues["poolId"] = strconv.Itoa(*args.PoolId)
+
+	body, marshalErr := json.Marshal(*args.Session)
+	if marshalErr != nil {
+		return nil, marshalErr
+	}
+	locationId, _ := uuid.Parse("134e239e-2df3-4794-a6f6-24f1f19ec8dc")
+	resp, err := client.Client.Send(ctx, http.MethodPost, locationId, "5.1", routeValues, nil, bytes.NewReader(body), "application/json", "application/json", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var responseValue TaskAgentSession
+	err = client.Client.UnmarshalBody(resp, &responseValue)
+	return &responseValue, err
+}
+
 // Delete an agent.  You probably don't want to call this endpoint directly. Instead, [use the agent configuration script](https://docs.microsoft.com/azure/devops/pipelines/agents/agents) to remove an agent from your organization.
 func (client *ClientImpl) DeleteAgent(ctx context.Context, args DeleteAgentArgs) error {
 	routeValues := make(map[string]string)
@@ -520,6 +560,39 @@ type DeleteDeploymentTargetArgs struct {
 	DeploymentGroupId *int
 	// (required) ID of the deployment target to delete.
 	TargetId *int
+}
+
+// Args for Delete message
+type DeleteMessageArgs struct {
+	PoolID    *int
+	SessionID *uuid.UUID
+	MessageId *uint64
+}
+
+// Delete message
+func (client *ClientImpl) DeleteMessage(ctx context.Context, args DeleteMessageArgs) error {
+	routeValues := make(map[string]string)
+	if args.PoolID == nil {
+		return &azuredevops.ArgumentNilOrEmptyError{ArgumentName: "args.PoolID"}
+	}
+	routeValues["poolId"] = strconv.Itoa(*args.PoolID)
+
+	if args.MessageId == nil {
+		return &azuredevops.ArgumentNilOrEmptyError{ArgumentName: "args.messageid"}
+	}
+	routeValues["messageId"] = strconv.Itoa(int(*args.MessageId))
+
+	if args.SessionID == nil {
+		return &azuredevops.ArgumentNilOrEmptyError{ArgumentName: "args.SessionID"}
+	}
+
+	queryParams := url.Values{}
+	queryParams.Add("sessionid", (*args.SessionID).String())
+
+	locationId, _ := uuid.Parse("c3a054f6-7a8a-49c0-944e-3a8e5d7adfd7")
+	_, err := client.Client.Send(ctx, http.MethodDelete, locationId, "5.1-preview.1", routeValues, queryParams, nil, "", "application/json", nil)
+
+	return err
 }
 
 // [Preview API] Delete a task group.
@@ -1284,6 +1357,46 @@ type GetDeploymentTargetsResponseValue struct {
 	Value []DeploymentMachine
 	// The continuation token to be used to get the next page of results.
 	ContinuationToken string
+}
+
+// Get message arguments
+type GetMessageArgs struct {
+	PoolID        *int
+	SessionID     *uuid.UUID
+	LastMessageId *uint64
+}
+
+// Get Message
+func (client *ClientImpl) GetMessage(ctx context.Context, args GetMessageArgs) (*TaskAgentMessage, error) {
+	routeValues := make(map[string]string)
+	if args.PoolID == nil {
+		return nil, &azuredevops.ArgumentNilOrEmptyError{ArgumentName: "args.PoolID"}
+	}
+	routeValues["poolId"] = strconv.Itoa(*args.PoolID)
+	if args.SessionID == nil {
+		return nil, &azuredevops.ArgumentNilOrEmptyError{ArgumentName: "args.SessionID"}
+	}
+
+	queryParams := url.Values{}
+	queryParams.Add("sessionid", (*args.SessionID).String())
+
+	if args.LastMessageId != nil {
+		queryParams.Add("lastMessageId", strconv.Itoa(int(*args.LastMessageId)))
+	}
+
+	locationId, _ := uuid.Parse("c3a054f6-7a8a-49c0-944e-3a8e5d7adfd7")
+	resp, err := client.Client.Send(ctx, http.MethodGet, locationId, "5.1-preview.1", routeValues, queryParams, nil, "", "application/json", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode == http.StatusAccepted {
+		return nil, nil
+	}
+
+	var responseValue TaskAgentMessage
+	err = client.Client.UnmarshalBody(resp, &responseValue)
+	return &responseValue, err
 }
 
 // [Preview API] List task groups.
