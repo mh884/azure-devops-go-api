@@ -9,6 +9,9 @@
 package taskagent
 
 import (
+	"encoding/json"
+	"reflect"
+
 	"github.com/TingluoHuang/azure-devops-go-api/azuredevops"
 	"github.com/TingluoHuang/azure-devops-go-api/azuredevops/forminput"
 	"github.com/TingluoHuang/azure-devops-go-api/azuredevops/webapi"
@@ -58,6 +61,234 @@ type AgentChangeEvent struct {
 	PoolId *int `json:"poolId,omitempty"`
 	// Deprecated:
 	TimeStamp *azuredevops.Time `json:"timeStamp,omitempty"`
+}
+
+type DictionaryContextDataPair struct {
+	Key   *string              `json:"k,omitempty"`
+	Value *PipelineContextData `json:"v,omitempty"`
+}
+
+type PipelineContextData struct {
+	Type       *int                         `json:"t,omitempty"`
+	Array      *[]PipelineContextData       `json:"a,omitempty"`
+	Boolean    *bool                        `json:"b,omitempty"`
+	Dictionary *[]DictionaryContextDataPair `json:"d,omitempty"`
+	Number     *float64                     `json:"n,omitempty"`
+	String     *string                      `json:"s,omitempty"`
+}
+
+func (c PipelineContextData) UnmarshalJSON(data []byte) error {
+	var raw interface{}
+	err := json.Unmarshal(data, &raw)
+	if err != nil {
+		return err
+	}
+
+	rawValue := reflect.ValueOf(raw)
+	switch rawValue.Kind() {
+	case reflect.String:
+		stringType := 0
+		c.Type = &stringType
+		stringToken := rawValue.String()
+		c.String = &stringToken
+		return nil
+	case reflect.Bool:
+		boolType := 3
+		c.Type = &boolType
+		boolValue := rawValue.Bool()
+		c.Boolean = &boolValue
+		return nil
+	case reflect.Int:
+		numberType := 4
+		c.Type = &numberType
+		numberToken := float64(rawValue.Int())
+		c.Number = &numberToken
+		return nil
+	case reflect.Float64:
+		numberType := 4
+		c.Type = &numberType
+		numberToken := rawValue.Float()
+		c.Number = &numberToken
+		return nil
+	}
+
+	object := raw.(map[string]interface{})
+	typeValue := object["t"].(float64)
+	typeInt := int(typeValue)
+	c.Type = &typeInt
+
+	if typeInt == 0 {
+		stringToken := object["s"].(string)
+		c.String = &stringToken
+	} else if typeInt == 1 {
+		arrayValue, err := json.Marshal(object["a"])
+		if err != nil {
+			return err
+		}
+		arrayToken := []PipelineContextData{}
+		err = json.Unmarshal(arrayValue, &arrayToken)
+		if err != nil {
+			return err
+		}
+
+		c.Array = &arrayToken
+	} else if typeInt == 2 {
+		mappingValue, err := json.Marshal(object["d"])
+		if err != nil {
+			return err
+		}
+
+		mappingToken := []DictionaryContextDataPair{}
+		err = json.Unmarshal(mappingValue, &mappingToken)
+		if err != nil {
+			return err
+		}
+
+		c.Dictionary = &mappingToken
+	} else if typeInt == 3 {
+		boolToken := object["b"].(bool)
+		c.Boolean = &boolToken
+	} else if typeInt == 4 {
+		numberToken := object["n"].(float64)
+		c.Number = &numberToken
+	}
+
+	return nil
+}
+
+type MappingTokenPair struct {
+	Key   *string        `json:"key,omitempty"`
+	Value *TemplateToken `json:"value,omitempty"`
+}
+
+type TemplateToken struct {
+	Type       *int                `json:"t,omitempty"`
+	Line       *int                `json:"l,omitempty"`
+	Colum      *int                `json:"c,omitempty"`
+	String     *string             `json:"lit,omitempty"`
+	Sequence   *[]TemplateToken    `json:"seq,omitempty"`
+	Mapping    *[]MappingTokenPair `json:"map,omitempty"`
+	Expression *string             `json:"expr,omitempty"`
+	Boolean    *bool               `json:"bool,omitempty"`
+	Number     *float64            `json:"num,omitempty"`
+}
+
+func (t TemplateToken) UnmarshalJSON(data []byte) error {
+	var raw interface{}
+	err := json.Unmarshal(data, &raw)
+	if err != nil {
+		return err
+	}
+
+	stringToken, ok := raw.(string)
+	if ok {
+		stringType := 0
+		t.Type = &stringType
+		t.String = &stringToken
+		return nil
+	}
+
+	object := raw.(map[string]interface{})
+	typeValue := object["type"].(float64)
+	typeInt := int(typeValue)
+	t.Type = &typeInt
+
+	if typeInt == 0 {
+		stringToken = object["lit"].(string)
+		t.String = &stringToken
+	} else if typeInt == 2 {
+		mappingValue, err := json.Marshal(object["map"])
+		if err != nil {
+			return err
+		}
+
+		mappingToken := []MappingTokenPair{}
+		err = json.Unmarshal(mappingValue, &mappingToken)
+		if err != nil {
+			return err
+		}
+
+		t.Mapping = &mappingToken
+	}
+
+	return nil
+}
+
+type ExpressionValue struct {
+	LiteralValue  *string `json:"literalValue,omitempty"`
+	VariableValue *string `json:"variableValue,omitempty"`
+}
+type ServiceEndpointReference struct {
+	Id   *uuid.UUID       `json:"id,omitempty"`
+	Name *ExpressionValue `json:"name,omitempty"`
+}
+
+type ResourceProperties struct {
+	Items *map[string]string `json:"items,omitempty"`
+}
+
+type ContainerResource struct {
+	Alias      *string                   `json:"alias,omitempty"`
+	Endpoint   *ServiceEndpointReference `json:"endpoint,omitempty"`
+	Properties *ResourceProperties       `json:"properties,omitempty"`
+}
+
+type JobResources struct {
+	Containers *[]ContainerResource `json:"containers,omitempty"`
+	Endpoints  *[]ServiceEndpoint   `json:"endpoints,omitempty"`
+}
+
+type ActionStepDefinitionReference struct {
+	Type           *string `json:"type,omitempty"`
+	Image          *string `json:"image,omitempty"`
+	Name           *string `json:"name,omitempty"`
+	Ref            *string `json:"ref,omitempty"`
+	RepositoryType *string `json:"repositoryType,omitempty"`
+	Path           *string `json:"path,omitempty"`
+	Plugin         *string `json:"plugin,omitempty"`
+}
+
+type ActionStep struct {
+	Reference        *ActionStepDefinitionReference `json:"reference,omitempty"`
+	DisplayNameToken *TemplateToken                 `json:"displayNameToken,omitempty"`
+	ScopeName        *string                        `json:"scopeName,omitempty"`
+	ContextName      *string                        `json:"contextName,omitempty"`
+	Environment      *TemplateToken                 `json:"environment,omitempty"`
+	Intputs          *TemplateToken                 `json:"intputs,omitempty"`
+	Condition        *string                        `json:"condition,omitempty"`
+	ContinueOnError  *TemplateToken                 `json:"continueOnError,omitempty"`
+	TimeoutInMinutes *TemplateToken                 `json:"timeoutInMinutes,omitempty"`
+	Type             *string                        `json:"type,omitempty"`
+	Id               *uuid.UUID                     `json:"id,omitempty"`
+	Name             *string                        `json:"name,omitempty"`
+	Enabled          *bool                          `json:"enabled,omitempty"`
+}
+
+type ContextScope struct {
+	Name    *string        `json:"name,omitempty"`
+	Inputs  *TemplateToken `json:"inputs,omitempty"`
+	Outputs *TemplateToken `json:"outputs,omitempty"`
+}
+
+type PipelineJobRequestMessage struct {
+	MessageType          *string                         `json:"messageType,omitempty"`
+	Plan                 *TaskOrchestrationPlanReference `json:"plan,omitempty"`
+	Timeline             *TimelineReference              `json:"timeline,omitempty"`
+	JobId                *uuid.UUID                      `json:"jobId,omitempty"`
+	JobDisplayName       *string                         `json:"jobDisplayName,omitempty"`
+	JobName              *string                         `json:"jobName,omitempty"`
+	JobContainer         *TemplateToken                  `json:"jobContainer,omitempty"`
+	JobServiceContainers *TemplateToken                  `json:"jobServiceContainers,omitempty"`
+	RequestId            *uint64                         `json:"requestId,omitempty"`
+	LockedUntil          *azuredevops.Time               `json:"lockedUntil,omitempty"`
+	Resources            *JobResources                   `json:"resources,omitempty"`
+	ContextData          *map[string]PipelineContextData `json:"contextData,omitempty"`
+	Workspace            *WorkspaceOptions               `json:"workspace,omitempty"`
+	Mask                 *[]MaskHint                     `json:"mask,omitempty"`
+	EnvironmentVariables *[]TemplateToken                `json:"environmentVariables,omitempty"`
+	Variables            *map[string]VariableValue       `json:"variables,omitempty"`
+	Steps                *[]ActionStep                   `json:"steps,omitempty"`
+	Scopes               *[]ContextScope                 `json:"scopes,omitempty"`
 }
 
 type AgentJobRequestMessage struct {
@@ -2576,4 +2807,8 @@ type VirtualMachineGroup struct {
 
 type VirtualMachineGroupCreateParameters struct {
 	Name *string `json:"name,omitempty"`
+}
+
+type WorkspaceOptions struct {
+	Clean *string `json:"clean,omitempty"`
 }
