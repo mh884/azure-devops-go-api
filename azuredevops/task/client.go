@@ -23,7 +23,7 @@ import (
 
 type Client interface {
 	AppendLogContent(context.Context, AppendLogContentArgs) (*TaskLog, error)
-	AppendTimelineRecordFeed(context.Context, *AppendTimelineRecordFeedArgs) error
+	AppendTimelineRecordFeed(context.Context, AppendTimelineRecordFeedArgs) error
 	// [Preview API]
 	CreateAttachment(context.Context, CreateAttachmentArgs) (*TaskAttachment, error)
 	CreateLog(context.Context, CreateLogArgs) (*TaskLog, error)
@@ -104,7 +104,7 @@ type AppendLogContentArgs struct {
 }
 
 // [Preview API]
-func (client *ClientImpl) AppendTimelineRecordFeed(ctx context.Context, args *AppendTimelineRecordFeedArgs) error {
+func (client *ClientImpl) AppendTimelineRecordFeed(ctx context.Context, args AppendTimelineRecordFeedArgs) error {
 	routeValues := make(map[string]string)
 	if args.ScopeIdentifier == nil {
 		return &azuredevops.ArgumentNilError{ArgumentName: "args.ScopeIdentifier"}
