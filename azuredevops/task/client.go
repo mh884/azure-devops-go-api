@@ -12,16 +12,18 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/google/uuid"
-	"github.com/TingluoHuang/azure-devops-go-api/azuredevops"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
+
+	"github.com/TingluoHuang/azure-devops-go-api/azuredevops"
+	"github.com/google/uuid"
 )
 
 type Client interface {
 	AppendLogContent(context.Context, AppendLogContentArgs) (*TaskLog, error)
+	AppendTimelineRecordFeed(context.Context, *AppendTimelineRecordFeedArgs) error
 	// [Preview API]
 	CreateAttachment(context.Context, CreateAttachmentArgs) (*TaskAttachment, error)
 	CreateLog(context.Context, CreateLogArgs) (*TaskLog, error)
@@ -99,6 +101,59 @@ type AppendLogContentArgs struct {
 	PlanId *uuid.UUID
 	// (required)
 	LogId *int
+}
+
+// [Preview API]
+func (client *ClientImpl) AppendTimelineRecordFeed(ctx context.Context, args *AppendTimelineRecordFeedArgs) error {
+	routeValues := make(map[string]string)
+	if args.ScopeIdentifier == nil {
+		return &azuredevops.ArgumentNilError{ArgumentName: "args.ScopeIdentifier"}
+	}
+	routeValues["scopeIdentifier"] = (*args.ScopeIdentifier).String()
+	if args.HubName == nil || *args.HubName == "" {
+		return &azuredevops.ArgumentNilOrEmptyError{ArgumentName: "args.HubName"}
+	}
+	routeValues["hubName"] = *args.HubName
+	if args.PlanId == nil {
+		return &azuredevops.ArgumentNilError{ArgumentName: "args.PlanId"}
+	}
+	routeValues["planId"] = (*args.PlanId).String()
+	if args.TimelineId == nil {
+		return &azuredevops.ArgumentNilError{ArgumentName: "args.TimelineId"}
+	}
+	routeValues["timelineId"] = (*args.TimelineId).String()
+	if args.RecordId == nil {
+		return &azuredevops.ArgumentNilError{ArgumentName: "args.RecordId"}
+	}
+	routeValues["recordId"] = (*args.RecordId).String()
+
+	body, marshalErr := json.Marshal(*args.Lines)
+	if marshalErr != nil {
+		return marshalErr
+	}
+
+	locationId, _ := uuid.Parse("858983e4-19bd-4c5e-864c-507b59b58b12")
+	_, err := client.Client.Send(ctx, http.MethodPost, locationId, "5.1-preview.1", routeValues, nil, bytes.NewReader(body), "application/json", "application/json", nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type AppendTimelineRecordFeedArgs struct {
+	// (required) The project GUID to scope the request
+	ScopeIdentifier *uuid.UUID
+	// (required) The name of the server hub: "build" for the Build server or "rm" for the Release Management server
+	HubName *string
+	// (required)
+	PlanId *uuid.UUID
+	// (required)
+	TimelineId *uuid.UUID
+	// (required)
+	RecordId *uuid.UUID
+	// (required)
+	Lines *TimelineRecordFeedLinesWrapper
 }
 
 // [Preview API]
