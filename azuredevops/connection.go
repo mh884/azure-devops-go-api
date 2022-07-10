@@ -25,8 +25,8 @@ func NewOAuthConnection(organizationUrl string, oauthAccessToken string) *Connec
 }
 
 // Creates a new Azure DevOps connection instance using a personal access token.
-func NewPatConnection(organizationUrl string, personalAccessToken string) *Connection {
-	authorizationString := CreateBasicAuthHeaderValue("", personalAccessToken)
+func NewPatConnection(organizationUrl string, userName string, personalAccessToken string) *Connection {
+	authorizationString := CreateBasicAuthHeaderValue(userName, personalAccessToken)
 	organizationUrl = normalizeUrl(organizationUrl)
 	return &Connection{
 		AuthorizationString:     authorizationString,
